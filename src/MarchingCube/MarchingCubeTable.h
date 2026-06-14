@@ -3,6 +3,22 @@
 #include <array>
 #include <utility>
 
+ struct Vec3 {
+      float x{};
+      float y{};
+      float z{};
+  };
+
+  struct Triangle {
+      std::array<Vec3, 3> vertices{};
+  };
+
+  struct GridCell {
+      std::array<Vec3, 8> positions{};
+      std::array<float, 8> values{};
+  };
+
+
 inline constexpr std::array<std::pair<int, int>, 12> EdgeToVertices{{
     {0, 1}, {1, 2}, {2, 3}, {0, 3},
     {4, 5}, {5, 6}, {6, 7}, {4, 7},

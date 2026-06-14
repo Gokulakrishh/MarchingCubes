@@ -1,2 +1,27 @@
-build/
 .DS_Store
+
+# CMake/build output
+build/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+compile_commands.json
+
+# Generated MRI/scalar-field data and local outputs
+data/
+*.nii
+*.nii.gz
+*.ply
+*.vtk
+*.obj
+
+# Generated helper files
+load_scalar_field.hpp
+
+# Native build artifacts
+*.o
+*.obj
+*.exe
+*.out
+*.dSYM/

@@ -2,9 +2,13 @@
 
 #include <iostream>
 
-void HeterogeneousRunner::Run(const std::string& inputFile, const std::string& outputFile)
+HeterogeneousRunner::HeterogeneousRunner(const std::string& inputFile, const std::string& outputFile)
 {
-    std::cout << "Running heterogeneous marching cubes\n";
     std::cout << "Input: " << inputFile << '\n';
     std::cout << "Output: " << outputFile << '\n';
+}
+
+void HeterogeneousRunner::run()
+{
+    std::cout << "Running heterogeneous marching cubes\n";
 }

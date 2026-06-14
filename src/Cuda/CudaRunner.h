@@ -7,5 +7,6 @@
 class CudaRunner : public IMarchingCubesRunner
 {
 public:
-    void Run(const std::string& inputFile, const std::string& outputFile) override;
+    CudaRunner(const std::string& inputFile, const std::string& outputFile);
+    void run() override;
 };

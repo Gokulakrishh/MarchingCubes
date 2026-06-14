@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(MarchingCubes
     src/Cpu/CpuRunner.cpp
     src/Cuda/CudaRunner.cpp
+    src/DataCenter/ScalarData.cpp
     src/Heterogeneous/HeterogeneousRunner.cpp
     src/main/main.cpp
 )

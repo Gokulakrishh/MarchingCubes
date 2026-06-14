@@ -33,16 +33,16 @@ int main(int argc, char** argv)
     std::unique_ptr<IMarchingCubesRunner> runner;
 
     if (model == "cpu") {
-        runner = std::make_unique<CpuRunner>();
+        runner = std::make_unique<CpuRunner>(inputFile, outputFile);
     } else if (model == "cuda") {
-        runner = std::make_unique<CudaRunner>();
+        runner = std::make_unique<CudaRunner>(inputFile, outputFile);
     } else if (model == "heterogeneous") {
-        runner = std::make_unique<HeterogeneousRunner>();
+        runner = std::make_unique<HeterogeneousRunner>(inputFile, outputFile);
     } else {
         std::cerr << "Model must be cpu, cuda, or heterogeneous\n";
         return 1;
     }
 
-    runner->Run(inputFile, outputFile);
+    runner->run();
     return 0;
 }
