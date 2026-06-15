@@ -154,9 +154,11 @@ void ScalarData::getData()
     if (filesize == 0) {
         return;
     }
-
+    // Avoid starting worker threads for very small file ranges.
+    constexpr std::uintmax_t minChunkBytes = 256ULL * 1024;
     const auto hardwareThreads = std::max(1u, std::thread::hardware_concurrency());
-    const auto nthreads = std::min<std::uintmax_t>(hardwareThreads, filesize);
+    const auto maxThreadsByFile = std::max<std::uintmax_t>(1, filesize / minChunkBytes);
+    const auto nthreads = std::min<std::uintmax_t>(hardwareThreads, maxThreadsByFile);
     const auto chunkSize = filesize / nthreads;
     
     std::vector<FileChunk> chunks;
