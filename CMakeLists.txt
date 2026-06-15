@@ -7,8 +7,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(MarchingCubes
+    src/Cpu/CpuParallelRunner.cpp
     src/Cpu/CpuRunner.cpp
     src/Cuda/CudaRunner.cpp
+    src/DataCenter/PlyWriter.cpp
     src/DataCenter/ScalarData.cpp
     src/Heterogeneous/HeterogeneousRunner.cpp
     src/main/main.cpp

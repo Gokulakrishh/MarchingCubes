@@ -7,6 +7,6 @@
 class HeterogeneousRunner : public IMarchingCubesRunner
 {
 public:
-    HeterogeneousRunner(const std::string& inputFile, const std::string& outputFile);
+    HeterogeneousRunner(const std::string& inputFile, const std::string& outputFile, float isoValue);
     void run() override;
 };

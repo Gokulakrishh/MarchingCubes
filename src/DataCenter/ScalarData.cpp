@@ -45,13 +45,37 @@ ScalarData::ScalarData(const std::string& inputFile)
     getData();
 }
 
-float ScalarData::at(std::size_t x, std::size_t y, std::size_t z) const
+unsigned int ScalarData::width() const
+{
+    return m_width;
+}
+
+unsigned int ScalarData::height() const
+{
+    return m_height;
+}
+
+unsigned int ScalarData::depth() const
+{
+    return m_depth;
+}
+
+float ScalarData::at(unsigned int x, unsigned int y, unsigned int z) const
 {
     if (x >= m_width || y >= m_height || z >= m_depth || m_intensityValues.empty()) {
         return 0.0f;
     }
 
     return m_intensityValues[x + m_width * (y + m_height * z)];
+}
+
+Vec3 ScalarData::position(unsigned int x, unsigned int y, unsigned int z) const
+{
+    return {
+        m_origin.x + static_cast<float>(x) * m_spacing.x,
+        m_origin.y + static_cast<float>(y) * m_spacing.y,
+        m_origin.z + static_cast<float>(z) * m_spacing.z
+    };
 }
 
 bool ScalarData::getHeaderData()
@@ -160,15 +184,16 @@ void ScalarData::getData()
     const auto maxThreadsByFile = std::max<std::uintmax_t>(1, filesize / minChunkBytes);
     const auto nthreads = std::min<std::uintmax_t>(hardwareThreads, maxThreadsByFile);
     const auto chunkSize = filesize / nthreads;
+    const auto threadCount = static_cast<unsigned int>(nthreads);
     
     std::vector<FileChunk> chunks;
     std::vector<std::thread> workerThreads;
-    chunks.reserve(static_cast<std::size_t>(nthreads));
-    workerThreads.reserve(static_cast<std::size_t>(nthreads));
+    chunks.reserve(threadCount);
+    workerThreads.reserve(threadCount);
 
-    for (std::uintmax_t i = 0; i < nthreads; ++i) {
+    for (unsigned int i = 0; i < threadCount; ++i) {
         const auto begin = i * chunkSize;
-        const auto end = (i == nthreads - 1) ? filesize : begin + chunkSize;
+        const auto end = (i == threadCount - 1) ? filesize : begin + chunkSize;
         chunks.push_back(FileChunk{begin, end});
     }
 
@@ -231,7 +256,10 @@ void ScalarData::processThread(FileChunk chunk)
             continue;
         }
 
-        const auto index = static_cast<std::size_t>(i) + m_width * (static_cast<std::size_t>(j) + m_height * static_cast<std::size_t>(k));
+        const unsigned int gridX = static_cast<unsigned int>(i);
+        const unsigned int gridY = static_cast<unsigned int>(j);
+        const unsigned int gridZ = static_cast<unsigned int>(k);
+        const unsigned int index = gridX + m_width * (gridY + m_height * gridZ);
         m_intensityValues[index] = intensity;
     }
 }

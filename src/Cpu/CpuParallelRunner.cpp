@@ -1,4 +1,4 @@
-#include "Cpu/CpuRunner.h"
+#include "Cpu/CpuParallelRunner.h"
 
 #include "DataCenter/PlyWriter.h"
 
@@ -6,9 +6,11 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <functional>
 #include <iostream>
+#include <thread>
 
-CpuRunner::CpuRunner(const std::string& inputFile, const std::string& outputFile, float isoValue)
+CpuParallelRunner::CpuParallelRunner(const std::string& inputFile, const std::string& outputFile, float isoValue)
     : m_scalarData(inputFile),
       m_outputFile(outputFile),
       m_isoValue(isoValue)
@@ -16,9 +18,9 @@ CpuRunner::CpuRunner(const std::string& inputFile, const std::string& outputFile
     //std::cout << "Output: " << outputFile << '\n';
 }
 
-void CpuRunner::run()
+void CpuParallelRunner::run()
 {
-    std::cout << "Running CPU marching cubes\n";
+    std::cout << "Running parallel CPU marching cubes\n";
     //const auto totalStart = std::chrono::steady_clock::now();
 
     if (m_scalarData.width() < 2 || m_scalarData.height() < 2 || m_scalarData.depth() < 2) {
@@ -26,27 +28,40 @@ void CpuRunner::run()
         return;
     }
 
-    std::vector<Triangle> triangles;
-    const unsigned int cubeCount = (m_scalarData.width() - 1) * (m_scalarData.height() - 1) * (m_scalarData.depth() - 1);
-    triangles.reserve(std::min(cubeCount, 1'000'000U));
+    const unsigned int cubeDepthCount = m_scalarData.depth() - 1;
+    const unsigned int hardwareThreads = std::max(1U, std::thread::hardware_concurrency());
+    const unsigned int threadCount = std::min(hardwareThreads, cubeDepthCount);
+    const unsigned int chunkSize = (cubeDepthCount + threadCount - 1) / threadCount;
+
+    std::vector<std::vector<Triangle>> threadTriangles(threadCount);
+    std::vector<std::thread> workers;
+    workers.reserve(threadCount);
 
     const auto algorithmStart = std::chrono::steady_clock::now();
-    for (unsigned int z = 0; z < m_scalarData.depth() - 1; ++z) {
-        for (unsigned int y = 0; y < m_scalarData.height() - 1; ++y) {
-            for (unsigned int x = 0; x < m_scalarData.width() - 1; ++x) {
-                const GridCell cell = buildGridCell(x, y, z);
-                const int cubeIndex = calculateCubeIndex(cell);
+    for (unsigned int thread = 0; thread < threadCount; ++thread) {
+        const unsigned int chunkDepthBegin = thread * chunkSize;
+        const unsigned int chunkDepthEnd = std::min(cubeDepthCount, chunkDepthBegin + chunkSize);
 
-                if (cubeIndex == 0 || cubeIndex == 255) {
-                    continue;
-                }
-                const std::array<Vec3, 12> edgeIntersections = calculateEdgeIntersections(cell, cubeIndex);
-                buildTriangles(cubeIndex, edgeIntersections, triangles);
-            }
-        }
+        workers.emplace_back(&CpuParallelRunner::processThread, this, chunkDepthBegin, chunkDepthEnd, std::ref(threadTriangles[thread]));
+    }
+
+    for (std::thread& worker : workers) {
+        worker.join();
+    }
+
+    unsigned int triangleCount = 0;
+    for (const std::vector<Triangle>& localTriangles : threadTriangles) {
+        triangleCount += static_cast<unsigned int>(localTriangles.size());
+    }
+
+    std::vector<Triangle> triangles;
+    triangles.reserve(triangleCount);
+    for (const std::vector<Triangle>& localTriangles : threadTriangles) {
+        triangles.insert(triangles.end(), localTriangles.begin(), localTriangles.end());
     }
     const auto algorithmEnd = std::chrono::steady_clock::now();
 
+    std::cout << "Threads: " << threadCount << '\n';
     std::cout << "Generated triangles: " << triangles.size() << '\n';
 
     const auto writeStart = std::chrono::steady_clock::now();
@@ -57,17 +72,38 @@ void CpuRunner::run()
     const auto writeEnd = std::chrono::steady_clock::now();
 
     std::cout << "Wrote PLY: " << m_outputFile << '\n';
-    std::cout << "CPU algorithm time: " << std::chrono::duration<double, std::milli>(algorithmEnd - algorithmStart).count() << " ms\n";
-    std::cout << "CPU write time: " << std::chrono::duration<double, std::milli>(writeEnd - writeStart).count() << " ms\n";
-    //std::cout << "CPU total time: " << std::chrono::duration<double, std::milli>(writeEnd - totalStart).count() << " ms\n";
+    std::cout << "CPU parallel algorithm time: " << std::chrono::duration<double, std::milli>(algorithmEnd - algorithmStart).count() << " ms\n";
+    std::cout << "CPU parallel write time: " << std::chrono::duration<double, std::milli>(writeEnd - writeStart).count() << " ms\n";
+    //std::cout << "CPU parallel total time: " << std::chrono::duration<double, std::milli>(writeEnd - totalStart).count() << " ms\n";
 }
 
-int CpuRunner::calculateCubeIndex(const GridCell& cell) const
+void CpuParallelRunner::processThread(unsigned int chunkDepthBegin, unsigned int chunkDepthEnd, std::vector<Triangle>& triangles) const
+{
+    const unsigned int cubeCount = m_scalarData.width() * m_scalarData.height() * (chunkDepthEnd - chunkDepthBegin);
+    triangles.reserve(std::min(cubeCount, 250'000U));
+
+    for (unsigned int z = chunkDepthBegin; z < chunkDepthEnd; ++z) {
+        for (unsigned int y = 0; y < m_scalarData.height() - 1; ++y) {
+            for (unsigned int x = 0; x < m_scalarData.width() - 1; ++x) {
+                const GridCell cell = buildGridCell(x, y, z);
+                const int cubeIndex = calculateCubeIndex(cell);
+
+                if (cubeIndex == 0 || cubeIndex == 255) {
+                    continue;
+                }
+
+                const std::array<Vec3, 12> edgeIntersections = calculateEdgeIntersections(cell, cubeIndex);
+                buildTriangles(cubeIndex, edgeIntersections, triangles);
+            }
+        }
+    }
+}
+
+int CpuParallelRunner::calculateCubeIndex(const GridCell& cell) const
 {
     int cubeIndex = 0;
 
     for (const unsigned int corner : cornerIndices) {
-        // Each bit stores whether one cube corner is inside the surface.
         if (cell.values[corner] < m_isoValue) {
             cubeIndex |= 1 << corner;
         }
@@ -76,10 +112,9 @@ int CpuRunner::calculateCubeIndex(const GridCell& cell) const
     return cubeIndex;
 }
 
-std::array<Vec3, 12> CpuRunner::calculateEdgeIntersections(const GridCell& cell, int cubeIndex) const
+std::array<Vec3, 12> CpuParallelRunner::calculateEdgeIntersections(const GridCell& cell, int cubeIndex) const
 {
     std::array<Vec3, 12> edgeIntersections{};
-    // EdgeTable stores the 12 crossed/not-crossed edge states as one bit mask.
     const int edgeMask = EdgeTable[cubeIndex];
 
     if (edgeMask == 0) {
@@ -87,7 +122,6 @@ std::array<Vec3, 12> CpuRunner::calculateEdgeIntersections(const GridCell& cell,
     }
 
     for (const unsigned int edge : edgeIndices) {
-        // If this edge bit is on, the surface crosses this edge.
         if ((edgeMask & (1 << edge)) != 0) {
             const auto& edgeCorners = EdgeToVertices[edge];
             const unsigned int firstCorner = static_cast<unsigned int>(edgeCorners.first);
@@ -100,7 +134,7 @@ std::array<Vec3, 12> CpuRunner::calculateEdgeIntersections(const GridCell& cell,
     return edgeIntersections;
 }
 
-void CpuRunner::buildTriangles(int cubeIndex, const std::array<Vec3, 12>& edgeIntersections, std::vector<Triangle>& triangles) const
+void CpuParallelRunner::buildTriangles(int cubeIndex, const std::array<Vec3, 12>& edgeIntersections, std::vector<Triangle>& triangles) const
 {
     const int* triangleEdges = TriangleEdgeTable[cubeIndex];
 
@@ -120,7 +154,7 @@ void CpuRunner::buildTriangles(int cubeIndex, const std::array<Vec3, 12>& edgeIn
     }
 }
 
-Vec3 CpuRunner::interpolate(const Vec3& firstPosition, float firstValue, const Vec3& secondPosition, float secondValue) const
+Vec3 CpuParallelRunner::interpolate(const Vec3& firstPosition, float firstValue, const Vec3& secondPosition, float secondValue) const
 {
     if (std::fabs(m_isoValue - firstValue) < 0.00001f) {
         return firstPosition;
@@ -142,7 +176,7 @@ Vec3 CpuRunner::interpolate(const Vec3& firstPosition, float firstValue, const V
     return interpolatePosition;
 }
 
-GridCell CpuRunner::buildGridCell(unsigned int x, unsigned int y, unsigned int z) const
+GridCell CpuParallelRunner::buildGridCell(unsigned int x, unsigned int y, unsigned int z) const
 {
     GridCell cell;
     for (const unsigned int corner : cornerIndices) {

@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-CudaRunner::CudaRunner(const std::string& inputFile, const std::string& outputFile)
+CudaRunner::CudaRunner(const std::string& inputFile, const std::string& outputFile, float isoValue)
 {
     std::cout << "Input: " << inputFile << '\n';
     std::cout << "Output: " << outputFile << '\n';

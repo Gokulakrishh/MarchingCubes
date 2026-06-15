@@ -3,21 +3,47 @@
 #include <array>
 #include <utility>
 
- struct Vec3 {
+struct Vec3 {
       float x{};
       float y{};
       float z{};
-  };
+};
 
-  struct Triangle {
+struct Triangle {
       std::array<Vec3, 3> vertices{};
-  };
+};
 
-  struct GridCell {
+struct GridCell {
       std::array<Vec3, 8> positions{};
       std::array<float, 8> values{};
-  };
+};
 
+inline constexpr std::array<unsigned int, 8> cornerIndices{{
+    0, 1, 2, 3, 4, 5, 6, 7
+}};
+
+inline constexpr std::array<unsigned int, 12> edgeIndices{{
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
+}};
+
+inline constexpr std::array<unsigned int, 5> triangleIndices{{
+    0, 1, 2, 3, 4
+}};
+
+inline constexpr std::array<unsigned int, 3> triangleVertexIndices{{
+    0, 1, 2
+}};
+
+inline constexpr std::array<std::array<unsigned int, 3>, 8> cornerOffsets{{
+        {0, 0, 0},
+        {1, 0, 0},
+        {1, 1, 0},
+        {0, 1, 0},
+        {0, 0, 1},
+        {1, 0, 1},
+        {1, 1, 1},
+        {0, 1, 1}
+}};
 
 inline constexpr std::array<std::pair<int, int>, 12> EdgeToVertices{{
     {0, 1}, {1, 2}, {2, 3}, {0, 3},
@@ -61,7 +87,7 @@ inline constexpr int EdgeTable[256] = {
 };
 
 // Each row is: {crossed edge ids..., -1 padding}.
-// Example: EdgeTable[1] is 0x109, which means TriangleEdgeTable[1] is {0, 3, 8, -1, ...}.
+// Example: EdgeTable[1] is 0x109, which means TriangleEdgeTable[1] is {0, 8, 3, -1, ...}.
 inline constexpr int TriangleEdgeTable[256][16] = {
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
@@ -320,4 +346,3 @@ inline constexpr int TriangleEdgeTable[256][16] = {
     {0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1},
     {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1}
 };
-
