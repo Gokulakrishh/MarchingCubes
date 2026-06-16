@@ -16,9 +16,9 @@
 int main(int argc, char** argv)
 {
     // input file, output file, model(cpu/cuda/heterogeneous)
-    if (argc != 5) {
+    if (argc != 5 && argc != 6) {
         std::cerr << "Usage: " << argv[0]
-                  << " <input.txt> <output.ply> <cpu|cpu-parallel|cuda|heterogeneous> <isoValue>\n";
+                  << " <input.txt> <output.ply> <cpu|cpu-parallel|cuda|heterogeneous> <isoValue> [cpu-parallel-threads]\n";
         return 1;
     }
 
@@ -36,6 +36,23 @@ int main(int argc, char** argv)
         return 1;
     }
 
+    unsigned int cpuParallelThreads{};
+    if (argc == 6) {
+        if (model != "cpu-parallel") {
+            std::cerr << "Thread count is only supported for cpu-parallel mode\n";
+            return 1;
+        }
+
+        const std::string_view threadCountText = argv[5];
+        const char* const threadCountBegin = threadCountText.data();
+        const char* const threadCountEnd = threadCountBegin + threadCountText.size();
+        const auto [threadCountParsedEnd, threadCountParseError] = std::from_chars(threadCountBegin, threadCountEnd, cpuParallelThreads);
+        if (threadCountParseError != std::errc{} || threadCountParsedEnd != threadCountEnd || cpuParallelThreads == 0) {
+            std::cerr << "Thread count must be a positive integer\n";
+            return 1;
+        }
+    }
+
     if (inputFile.extension() != ".txt") {
         std::cerr << "Input file must be a .txt file\n";
         return 1;
@@ -51,7 +68,7 @@ int main(int argc, char** argv)
     if (model == "cpu") {
         runner = std::make_unique<CpuRunner>(inputFile.string(), outputFile.string(), isoValue);
     } else if (model == "cpu-parallel") {
-        runner = std::make_unique<CpuParallelRunner>(inputFile.string(), outputFile.string(), isoValue);
+        runner = std::make_unique<CpuParallelRunner>(inputFile.string(), outputFile.string(), isoValue, cpuParallelThreads);
     } else if (model == "cuda") {
         runner = std::make_unique<CudaRunner>(inputFile.string(), outputFile.string(), isoValue);
     } else if (model == "heterogeneous") {

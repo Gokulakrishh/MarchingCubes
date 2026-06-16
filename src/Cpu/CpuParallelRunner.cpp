@@ -13,10 +13,11 @@
 #include <string>
 #include <thread>
 
-CpuParallelRunner::CpuParallelRunner(const std::string& inputFile, const std::string& outputFile, float isoValue)
+CpuParallelRunner::CpuParallelRunner(const std::string& inputFile, const std::string& outputFile, float isoValue, unsigned int maxThreads)
     : m_scalarData(inputFile),
       m_outputFile(outputFile),
-      m_isoValue(isoValue)
+      m_isoValue(isoValue),
+      m_maxThreads(maxThreads)
 {
     //std::cout << "Output: " << outputFile << '\n';
 }
@@ -36,7 +37,8 @@ std::expected<void, std::string> CpuParallelRunner::run()
 
     const unsigned int cubeDepthCount = m_scalarData.depth() - 1;
     const unsigned int hardwareThreads = std::max(1U, std::thread::hardware_concurrency());
-    const unsigned int threadCount = std::min(hardwareThreads, cubeDepthCount);
+    const unsigned int requestedThreads = m_maxThreads == 0 ? hardwareThreads : std::min(m_maxThreads, hardwareThreads);
+    const unsigned int threadCount = std::min(requestedThreads, cubeDepthCount);
     const unsigned int chunkSize = (cubeDepthCount + threadCount - 1) / threadCount;
 
     std::vector<std::vector<Triangle>> threadTriangles(threadCount);

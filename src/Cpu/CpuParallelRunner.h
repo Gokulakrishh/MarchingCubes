@@ -11,7 +11,7 @@
 class CpuParallelRunner : public IMarchingCubesRunner
 {
 public:
-    CpuParallelRunner(const std::string& inputFile, const std::string& outputFile, float isoValue);
+    CpuParallelRunner(const std::string& inputFile, const std::string& outputFile, float isoValue, unsigned int maxThreads = 0);
     std::expected<void, std::string> run() override;
 
 private:
@@ -25,4 +25,5 @@ private:
     ScalarData m_scalarData;
     std::string m_outputFile;
     float m_isoValue {};
+    unsigned int m_maxThreads {};
 };
