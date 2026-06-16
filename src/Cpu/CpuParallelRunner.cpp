@@ -5,9 +5,12 @@
 #include <algorithm>
 #include <array>
 #include <chrono>
+#include <cstddef>
 #include <cmath>
+#include <expected>
 #include <functional>
 #include <iostream>
+#include <string>
 #include <thread>
 
 CpuParallelRunner::CpuParallelRunner(const std::string& inputFile, const std::string& outputFile, float isoValue)
@@ -18,14 +21,17 @@ CpuParallelRunner::CpuParallelRunner(const std::string& inputFile, const std::st
     //std::cout << "Output: " << outputFile << '\n';
 }
 
-void CpuParallelRunner::run()
+std::expected<void, std::string> CpuParallelRunner::run()
 {
     std::cout << "Running parallel CPU marching cubes\n";
     //const auto totalStart = std::chrono::steady_clock::now();
 
+    if (!m_scalarData.valid()) {
+        return std::unexpected(*m_scalarData.error());
+    }
+
     if (m_scalarData.width() < 2 || m_scalarData.height() < 2 || m_scalarData.depth() < 2) {
-        std::cerr << "Scalar field is too small to build cubes\n";
-        return;
+        return std::unexpected("Scalar field is too small to build cubes");
     }
 
     const unsigned int cubeDepthCount = m_scalarData.depth() - 1;
@@ -34,25 +40,26 @@ void CpuParallelRunner::run()
     const unsigned int chunkSize = (cubeDepthCount + threadCount - 1) / threadCount;
 
     std::vector<std::vector<Triangle>> threadTriangles(threadCount);
-    std::vector<std::thread> workers;
-    workers.reserve(threadCount);
 
     const auto algorithmStart = std::chrono::steady_clock::now();
-    for (unsigned int thread = 0; thread < threadCount; ++thread) {
-        const unsigned int chunkDepthBegin = thread * chunkSize;
-        const unsigned int chunkDepthEnd = std::min(cubeDepthCount, chunkDepthBegin + chunkSize);
+    {
+        std::vector<std::jthread> workers;
+        workers.reserve(threadCount);
 
-        workers.emplace_back(&CpuParallelRunner::processThread, this, chunkDepthBegin, chunkDepthEnd, std::ref(threadTriangles[thread]));
+        for (unsigned int thread = 0; thread < threadCount; ++thread) {
+            const unsigned int chunkDepthBegin = thread * chunkSize;
+            const unsigned int chunkDepthEnd = std::min(cubeDepthCount, chunkDepthBegin + chunkSize);
+
+            workers.emplace_back(&CpuParallelRunner::processThread, this, chunkDepthBegin, chunkDepthEnd, std::ref(threadTriangles[thread]));
+        }
     }
 
-    for (std::thread& worker : workers) {
-        worker.join();
-    }
-
-    unsigned int triangleCount = 0;
-    for (const std::vector<Triangle>& localTriangles : threadTriangles) {
-        triangleCount += static_cast<unsigned int>(localTriangles.size());
-    }
+    const std::size_t triangleCount = std::ranges::fold_left(
+        threadTriangles,
+        std::size_t{},
+        [](std::size_t count, const std::vector<Triangle>& localTriangles) {
+            return count + localTriangles.size();
+        });
 
     std::vector<Triangle> triangles;
     triangles.reserve(triangleCount);
@@ -66,8 +73,8 @@ void CpuParallelRunner::run()
 
     const auto writeStart = std::chrono::steady_clock::now();
     const PlyWriter writer;
-    if (!writer.write(m_outputFile, triangles)) {
-        return;
+    if (auto result = writer.write(m_outputFile, triangles); !result) {
+        return std::unexpected(result.error());
     }
     const auto writeEnd = std::chrono::steady_clock::now();
 
@@ -75,6 +82,7 @@ void CpuParallelRunner::run()
     std::cout << "CPU parallel algorithm time: " << std::chrono::duration<double, std::milli>(algorithmEnd - algorithmStart).count() << " ms\n";
     std::cout << "CPU parallel write time: " << std::chrono::duration<double, std::milli>(writeEnd - writeStart).count() << " ms\n";
     //std::cout << "CPU parallel total time: " << std::chrono::duration<double, std::milli>(writeEnd - totalStart).count() << " ms\n";
+    return {};
 }
 
 void CpuParallelRunner::processThread(unsigned int chunkDepthBegin, unsigned int chunkDepthEnd, std::vector<Triangle>& triangles) const

@@ -4,6 +4,7 @@
 #include "MarchingCube/MarchingCubeRunner.h"
 
 #include <array>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -12,7 +13,7 @@ class CpuRunner : public IMarchingCubesRunner
 
 public:
     CpuRunner(const std::string& inputFile, const std::string& outputFile, float isoValue);
-    void run() override;
+    std::expected<void, std::string> run() override;
 private:
     int calculateCubeIndex(const GridCell& cell) const;
     std::array<Vec3, 12> calculateEdgeIntersections(const GridCell& cell, int cubeIndex) const;

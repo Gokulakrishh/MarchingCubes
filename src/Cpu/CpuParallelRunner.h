@@ -4,6 +4,7 @@
 #include "MarchingCube/MarchingCubeRunner.h"
 
 #include <array>
+#include <expected>
 #include <string>
 #include <vector>
 
@@ -11,7 +12,7 @@ class CpuParallelRunner : public IMarchingCubesRunner
 {
 public:
     CpuParallelRunner(const std::string& inputFile, const std::string& outputFile, float isoValue);
-    void run() override;
+    std::expected<void, std::string> run() override;
 
 private:
     void processThread(unsigned int chunkBegin, unsigned int chunkEnd, std::vector<Triangle>& triangles) const;

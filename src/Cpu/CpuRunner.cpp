@@ -6,7 +6,9 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <expected>
 #include <iostream>
+#include <string>
 
 CpuRunner::CpuRunner(const std::string& inputFile, const std::string& outputFile, float isoValue)
     : m_scalarData(inputFile),
@@ -16,14 +18,17 @@ CpuRunner::CpuRunner(const std::string& inputFile, const std::string& outputFile
     //std::cout << "Output: " << outputFile << '\n';
 }
 
-void CpuRunner::run()
+std::expected<void, std::string> CpuRunner::run()
 {
     std::cout << "Running CPU marching cubes\n";
     //const auto totalStart = std::chrono::steady_clock::now();
 
+    if (!m_scalarData.valid()) {
+        return std::unexpected(*m_scalarData.error());
+    }
+
     if (m_scalarData.width() < 2 || m_scalarData.height() < 2 || m_scalarData.depth() < 2) {
-        std::cerr << "Scalar field is too small to build cubes\n";
-        return;
+        return std::unexpected("Scalar field is too small to build cubes");
     }
 
     std::vector<Triangle> triangles;
@@ -51,8 +56,8 @@ void CpuRunner::run()
 
     const auto writeStart = std::chrono::steady_clock::now();
     const PlyWriter writer;
-    if (!writer.write(m_outputFile, triangles)) {
-        return;
+    if (auto result = writer.write(m_outputFile, triangles); !result) {
+        return std::unexpected(result.error());
     }
     const auto writeEnd = std::chrono::steady_clock::now();
 
@@ -60,6 +65,7 @@ void CpuRunner::run()
     std::cout << "CPU algorithm time: " << std::chrono::duration<double, std::milli>(algorithmEnd - algorithmStart).count() << " ms\n";
     std::cout << "CPU write time: " << std::chrono::duration<double, std::milli>(writeEnd - writeStart).count() << " ms\n";
     //std::cout << "CPU total time: " << std::chrono::duration<double, std::milli>(writeEnd - totalStart).count() << " ms\n";
+    return {};
 }
 
 int CpuRunner::calculateCubeIndex(const GridCell& cell) const

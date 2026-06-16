@@ -1,10 +1,11 @@
 #pragma once
 
+#include <expected>
 #include <string>
 
 class IMarchingCubesRunner
 {
 public:
     virtual ~IMarchingCubesRunner() = default;
-    virtual void run() = 0;
+    virtual std::expected<void, std::string> run() = 0;
 };

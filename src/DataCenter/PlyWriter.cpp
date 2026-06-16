@@ -1,14 +1,14 @@
 #include "DataCenter/PlyWriter.h"
 
+#include <expected>
 #include <fstream>
-#include <iostream>
+#include <string>
 
-bool PlyWriter::write(const std::string& outputFile, const std::vector<Triangle>& triangles) const
+std::expected<void, std::string> PlyWriter::write(const std::string& outputFile, const std::vector<Triangle>& triangles) const
 {
     std::ofstream file(outputFile);
     if (!file) {
-        std::cerr << "Cannot open output file: " << outputFile << '\n';
-        return false;
+        return std::unexpected("Cannot open output file: " + outputFile);
     }
 
     const auto vertexCount = triangles.size() * 3;
@@ -36,5 +36,9 @@ bool PlyWriter::write(const std::string& outputFile, const std::vector<Triangle>
         vertexIndex += 3;
     }
 
-    return true;
+    if (!file) {
+        return std::unexpected("Failed while writing output file: " + outputFile);
+    }
+
+    return {};
 }

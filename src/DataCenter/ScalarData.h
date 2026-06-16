@@ -4,6 +4,8 @@
 #include "DataCenter/ReadData.h"
 
 #include <cstdint>
+#include <expected>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -21,12 +23,14 @@ public:
     unsigned int depth() const;
     float at(unsigned int x, unsigned int y, unsigned int z) const;
     Vec3 position(unsigned int x, unsigned int y, unsigned int z) const;
+    bool valid() const;
+    const std::optional<std::string>& error() const;
     
 private:
 
     bool getHeaderData();
     void getData();
-    void processThread(FileChunk chunk);
+    std::expected<void, std::string> processThread(FileChunk chunk);
 
     std::string m_inputFile;
     unsigned int m_width{};
@@ -35,6 +39,7 @@ private:
     Vec3 m_origin{};
     Vec3 m_spacing{1.0f, 1.0f, 1.0f};
     std::vector<float> m_intensityValues;
+    std::optional<std::string> m_error;
 
 };   
  

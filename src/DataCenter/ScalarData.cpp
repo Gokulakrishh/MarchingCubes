@@ -1,34 +1,40 @@
 #include "DataCenter/ScalarData.h"
 
 #include <algorithm>
-#include <cerrno>
+#include <charconv>
+#include <cctype>
 #include <cmath>
-#include <cstdlib>
+#include <expected>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iostream>
+#include <optional>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <system_error>
 #include <thread>
 
-inline bool readFloat(const char*& cursor, float& value)
+inline bool readFloat(std::string_view& cursor, float& value)
 {
-    errno = 0;
-    char* end{};
-    value = std::strtof(cursor, &end);
+    while (!cursor.empty() && std::isspace(static_cast<unsigned char>(cursor.front())) != 0) {
+        cursor.remove_prefix(1);
+    }
 
-    if (cursor == end || errno == ERANGE) {
+    auto result = std::from_chars(cursor.data(), cursor.data() + cursor.size(), value);
+
+    if (result.ec != std::errc()) {
         return false;
     }
 
-    cursor = end;
+    cursor.remove_prefix(result.ptr - cursor.data());
     return true;
 }
 
 inline bool parseScalarLine(const std::string& line, float& x, float& y, float& z, float& intensity)
 {
-    const char* cursor = line.c_str();
+    std::string_view cursor = line;
     return readFloat(cursor, x) &&
            readFloat(cursor, y) &&
            readFloat(cursor, z) &&
@@ -43,6 +49,16 @@ ScalarData::ScalarData(const std::string& inputFile)
         return;
     }
     getData();
+}
+
+bool ScalarData::valid() const
+{
+    return !m_error.has_value();
+}
+
+const std::optional<std::string>& ScalarData::error() const
+{
+    return m_error;
 }
 
 unsigned int ScalarData::width() const
@@ -82,7 +98,7 @@ bool ScalarData::getHeaderData()
 {
     std::ifstream file(m_inputFile);
     if (!file) {
-        std::cerr << "Cannot open input file: " << m_inputFile << '\n';
+        m_error = "Cannot open input file: " + m_inputFile;
         return false;
     }
 
@@ -107,7 +123,7 @@ bool ScalarData::getHeaderData()
 
             if (!(stream >> m_width >> firstSeparator >> m_height >> secondSeparator >> m_depth) ||
                 firstSeparator != 'x' || secondSeparator != 'x') {
-                std::cerr << "Invalid grid header: " << line << '\n';
+                m_error = "Invalid grid header: " + line;
                 return false;
             }
 
@@ -122,7 +138,7 @@ bool ScalarData::getHeaderData()
 
             if (!(stream >> m_spacing.x >> firstSeparator >> m_spacing.y >> secondSeparator >> m_spacing.z) ||
                 firstSeparator != 'x' || secondSeparator != 'x') {
-                std::cerr << "Invalid voxel spacing header: " << line << '\n';
+                m_error = "Invalid voxel spacing header: " + line;
                 return false;
             }
 
@@ -133,13 +149,13 @@ bool ScalarData::getHeaderData()
         if (line.starts_with("# origin_mm")) {
             const auto separatorPosition = line.find('=');
             if (separatorPosition == std::string::npos) {
-                std::cerr << "Invalid origin header: " << line << '\n';
+                m_error = "Invalid origin header: " + line;
                 return false;
             }
 
             std::istringstream stream(line.substr(separatorPosition + 1));
             if (!(stream >> m_origin.x >> m_origin.y >> m_origin.z)) {
-                std::cerr << "Invalid origin header: " << line << '\n';
+                m_error = "Invalid origin header: " + line;
                 return false;
             }
 
@@ -148,17 +164,17 @@ bool ScalarData::getHeaderData()
     }
 
     if (!foundGrid) {
-        std::cerr << "Grid header was not found in: " << m_inputFile << '\n';
+        m_error = "Grid header was not found in: " + m_inputFile;
         return false;
     }
 
     if (!foundSpacing) {
-        std::cerr << "Voxel spacing header was not found in: " << m_inputFile << '\n';
+        m_error = "Voxel spacing header was not found in: " + m_inputFile;
         return false;
     }
 
     if (!foundOrigin) {
-        std::cerr << "Origin header was not found in: " << m_inputFile << '\n';
+        m_error = "Origin header was not found in: " + m_inputFile;
         return false;
     }
 
@@ -171,7 +187,7 @@ void ScalarData::getData()
     std::error_code error;
     const auto filesize = std::filesystem::file_size(m_inputFile, error);
     if (error) {
-        std::cerr << "Cannot get input file size: " << m_inputFile << '\n';
+        m_error = "Cannot get input file size: " + m_inputFile;
         return;
     }
 
@@ -187,7 +203,7 @@ void ScalarData::getData()
     const auto threadCount = static_cast<unsigned int>(nthreads);
     
     std::vector<FileChunk> chunks;
-    std::vector<std::thread> workerThreads;
+    std::vector<std::future<std::expected<void, std::string>>> workerThreads;
     chunks.reserve(threadCount);
     workerThreads.reserve(threadCount);
 
@@ -198,20 +214,21 @@ void ScalarData::getData()
     }
 
     for (const FileChunk chunk : chunks) {
-        workerThreads.emplace_back(&ScalarData::processThread, this, chunk);
+        workerThreads.push_back(std::async(std::launch::async, &ScalarData::processThread, this, chunk));
     }
 
-    for (std::thread& workerThread : workerThreads) {
-        workerThread.join();
+    for (auto& workerThread : workerThreads) {
+        if (auto result = workerThread.get(); !result && !m_error) {
+            m_error = result.error();
+        }
     }
 }
 
-void ScalarData::processThread(FileChunk chunk)
+std::expected<void, std::string> ScalarData::processThread(FileChunk chunk)
 {
     std::ifstream file(m_inputFile, std::ios::binary);
     if (!file) {
-        std::cerr << "Cannot open input file: " << m_inputFile << '\n';
-        return;
+        return std::unexpected("Cannot open input file: " + m_inputFile);
     }
 
     file.seekg(static_cast<std::streamoff>(chunk.begin));
@@ -262,4 +279,6 @@ void ScalarData::processThread(FileChunk chunk)
         const unsigned int index = gridX + m_width * (gridY + m_height * gridZ);
         m_intensityValues[index] = intensity;
     }
+
+    return {};
 }
