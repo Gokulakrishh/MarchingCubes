@@ -25,6 +25,10 @@ public:
     Vec3 position(unsigned int x, unsigned int y, unsigned int z) const;
     bool valid() const;
     const std::optional<std::string>& error() const;
+    const std::vector<float>& values() const
+{
+    return m_intensityValues;
+}
     
 private:
 

@@ -1,13 +1,56 @@
-# Marching Cubes Benchmark
+# Marching Cubes
 
-This project implements the Marching Cubes surface reconstruction algorithm in modern C++ and CUDA.
+This project implements the Marching Cubes surface reconstruction algorithm in C++23 and CUDA/Thrust.
 
-The current implementation reads a scalar field from a text file, extracts an isosurface, builds triangles, and writes the result as an ASCII `.ply` mesh.
+It reads a regular scalar field from a text file, extracts an isosurface, generates triangles, and writes the result as an ASCII `.ply` mesh.
 
-<p>
-  <img src="files/snapshot00.png" alt="Rendered Marching Cubes brain mesh view 1" width="49%">
-  <img src="files/snapshot01.png" alt="Rendered Marching Cubes brain mesh view 2" width="49%">
-</p>
+
+## Current Large Benchmark
+
+These are algorithm measurements, not complete application runtime.
+
+The current comparison uses a larger local CT scalar field:
+
+- Grid: `128 x 128 x 267`
+- Generated triangles: `1,515,424`
+
+Lower is better. One `#` represents approximately `33 ms`.
+
+```text
+CPU, 1 thread    | ##################################################  1635.44 ms
+CPU, 8 threads   | #######                                              238.70 ms
+CPU, 16 threads  | #####                                                159.89 ms
+GPU, Thrust      | #                                                     43.84 ms
+```
+
+For this workload, the heterogeneous GPU path is:
+
+- `37.3x` faster than the sequential CPU implementation.
+- `5.4x` faster than the 8-thread CPU implementation.
+- `3.6x` faster than the 16-thread CPU implementation.
+
+## Build
+
+Requirements:
+
+- CMake 3.22 or newer.
+- A C++23 compiler.
+- CUDA 12.4 or newer.
+
+CUDA is required. CMake configuration stops with an error when a supported CUDA compiler is unavailable.
+
+```bash
+cmake -S . -B build
+cmake --build build -j
+```
+
+When multiple CUDA versions are installed, select the supported NVCC explicitly:
+
+```bash
+cmake --fresh -S . -B build \
+  -DCMAKE_CUDA_COMPILER=/usr/local/cuda-13.3/bin/nvcc
+cmake --build build -j
+```
 
 ## Run
 
@@ -17,26 +60,33 @@ The current implementation reads a scalar field from a text file, extracts an is
 
 The optional final argument caps worker threads for `cpu-parallel` runs. If omitted, `cpu-parallel` uses the available hardware thread count.
 
-## Benchmark
+Examples:
 
-Benchmark numbers for the Marching Cubes algorithm.
+```bash
+./build/MarchingCubes files/input.txt output.ply cpu 0.45
+./build/MarchingCubes files/input.txt output.ply cpu-parallel 0.45 8
+./build/MarchingCubes files/input.txt output.ply heterogeneous 0.45
+```
 
-Test input:
+## Historical CPU Benchmark
 
-- File: `files/input.txt`
-- Grid: `69 x 64 x 72`
-- Iso value: `0.45`
-- Generated triangles: `58,320`
+The earlier CPU comparison used `files/input.txt`, a `69 x 64 x 72` grid producing `58,320` triangles at iso value `0.45`.
 
-| Machine | Mode | Threads | Algorithm Time |
-| --- | --- | ---: | ---: |
-| Intel core i7-4870HQ (Mac) | `cpu` | 1 | `169.181 ms` |
-| Intel core i7-4870HQ (Mac)  | `cpu-parallel` | 8 | `33.5242 ms` |
-| Intel Core Ultra 7 255H | `cpu` | 1 | `74.1075 ms` |
-| Intel Core Ultra 7 255H | `cpu-parallel` | 8 | `23.4356 ms` |
-| Intel Core Ultra 7 255H | `cpu-parallel` | 16 | `19.9027 ms` |
+Lower is better. One `#` represents approximately `4 ms`.
 
-Linux benchmark numbers are averages over 5 runs on Ubuntu 24.04 with GCC 14.2.0. MacBook Pro numbers are from the earlier Intel macOS run.
+```text
+Intel i7-4870HQ, CPU 1     | ##########################################  169.18 ms
+Intel i7-4870HQ, CPU 8     | ########                                    33.52 ms
+Core Ultra 7 255H, CPU 1   | ###################                         74.11 ms
+Core Ultra 7 255H, CPU 8   | ######                                      23.44 ms
+Core Ultra 7 255H, CPU 16  | #####                                       19.90 ms
+```
+
+<p>
+  <img src="files/snapshot00.png" alt="Rendered Marching Cubes brain mesh view 1" width="49%">
+  <img src="files/snapshot01.png" alt="Rendered Marching Cubes brain mesh view 2" width="49%">
+</p>
+
 
 ## Algorithm Reference
 
