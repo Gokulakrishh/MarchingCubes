@@ -16,9 +16,6 @@ data/
 *.vtk
 *.obj
 
-# Keep the documented example mesh in version control.
-!files/output.ply
-
 # Generated helper files
 load_scalar_field.hpp
 

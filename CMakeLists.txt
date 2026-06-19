@@ -22,15 +22,20 @@ set(CMAKE_CUDA23_COMPILE_FEATURES cuda_std_23)
 add_executable(MarchingCubes
     src/Cpu/CpuParallelRunner.cpp
     src/Cpu/CpuRunner.cpp
-    src/Cuda/CudaRunner.cpp
     src/DataCenter/PlyWriter.cpp
     src/DataCenter/ScalarData.cpp
     src/main/main.cpp
 )
 
+add_library(CudaRunnerKernel OBJECT src/Cuda/CudaRunner.cpp)
+set_source_files_properties(src/Cuda/CudaRunner.cpp PROPERTIES LANGUAGE CUDA)
+
 add_library(HeterogeneousRunnerCuda OBJECT src/Heterogeneous/HeterogeneousRunner.cpp)
 set_source_files_properties(src/Heterogeneous/HeterogeneousRunner.cpp PROPERTIES LANGUAGE CUDA)
 
+target_include_directories(CudaRunnerKernel PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
 target_include_directories(HeterogeneousRunnerCuda PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
@@ -43,8 +48,16 @@ target_compile_options(HeterogeneousRunnerCuda PRIVATE
     --display-error-number
     --Wreorder
 )
+target_compile_options(CudaRunnerKernel PRIVATE
+    -Xcompiler=-Wall,-Wextra
+    --display-error-number
+    --Wreorder
+)
 target_compile_options(MarchingCubes PRIVATE
     $<$<CXX_COMPILER_ID:AppleClang,Clang,GNU>:-Wall -Wextra -Wpedantic>
 )
 
-target_link_libraries(MarchingCubes PRIVATE HeterogeneousRunnerCuda)
+target_link_libraries(MarchingCubes PRIVATE
+    CudaRunnerKernel
+    HeterogeneousRunnerCuda
+)

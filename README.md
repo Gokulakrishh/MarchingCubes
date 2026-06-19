@@ -4,30 +4,53 @@ This project implements the Marching Cubes surface reconstruction algorithm in C
 
 It reads a regular scalar field from a text file, extracts an isosurface, generates triangles, and writes the result as an ASCII `.ply` mesh.
 
-
 ## Current Large Benchmark
 
-These are algorithm measurements, not complete application runtime.
-
-The current comparison uses a larger local CT scalar field:
+The current comparison uses a larger local CT scalar field and a Release build:
 
 - Grid: `128 x 128 x 267`
 - Generated triangles: `1,515,424`
+- CPU: Intel Core Ultra 7 255H, 16 available hardware threads
+- GPU: NVIDIA GeForce RTX 5070 Laptop GPU
+- Toolchain: GCC 14.2 and CUDA 13.3
 
-Lower is better. One `#` represents approximately `33 ms`.
+<p align="center">
+  <img src="files/benchmark_large.svg" alt="Horizontal bar charts comparing Marching Cubes generation time and GPU pipeline stages" width="100%">
+</p>
 
-```text
-CPU, 1 thread    | ##################################################  1635.44 ms
-CPU, 8 threads   | #######                                              238.70 ms
-CPU, 16 threads  | #####                                                159.89 ms
-GPU, Thrust      | #                                                     43.84 ms
-```
+### Iso-value update performance
 
-For this workload, the heterogeneous GPU path is:
+| Implementation | Mesh generation |
+|---|---:|
+| CPU, 1 thread | `210.85 ms` |
+| CPU, 8 threads | `76.81 ms` |
+| CPU, 16 threads | `73.64 ms` |
+| CUDA, Thrust | `3.32 ms` |
+| CUDA, explicit kernels | **`1.46 ms`** |
 
-- `37.3x` faster than the sequential CPU implementation.
-- `5.4x` faster than the 8-thread CPU implementation.
-- `3.6x` faster than the 16-thread CPU implementation.
+For this workload, the explicit CUDA kernel generation is `2.27x` faster than Thrust, `50.5x` faster than the 16-thread CPU path, and `144.5x` faster than the sequential CPU path.
+
+The GPU generation timer covers triangle counting, exclusive scan, output allocation, and triangle generation. It excludes scalar-field loading, initial GPU setup, full mesh download, host conversion, and PLY writing. This is the relevant iso-slider reaction time when the scalar field and generated mesh remain on the GPU for rendering.
+
+### GPU transfer and conversion
+
+| Implementation | GPU generation | Download | Host conversion | CPU-ready mesh |
+|---|---:|---:|---:|---:|
+| CUDA, explicit kernels | **`1.46 ms`** | **`18.25 ms`** | `19.84 ms` | **`39.55 ms`** |
+| CUDA, Thrust | `3.32 ms` | `22.11 ms` | **`18.64 ms`** | `44.07 ms` |
+
+Download time includes allocating host output storage and copying all `1,515,424` triangles from the GPU. 
+
+Both GPU implementations generate byte-identical PLY output. CPU output has the same triangle count and geometry, with small floating-point rounding differences.
+
+## Implementations
+
+- `cpu`: sequential C++23 implementation.
+- `cpu-parallel`: multithreaded C++23 implementation with a configurable thread limit.
+- `heterogeneous`: GPU implementation using Thrust algorithms and device functors.
+- `cuda`: explicit CUDA implementation using one thread per cube, two custom kernels, constant-memory lookup tables, and CUB for the exclusive scan.
+
+Both GPU implementations use two passes. The first pass counts the triangles produced by each cube. An exclusive scan converts those counts into non-overlapping output offsets. The second pass generates the triangles directly into the final GPU buffer without atomics.
 
 ## Build
 
@@ -66,27 +89,8 @@ Examples:
 ./build/MarchingCubes files/input.txt output.ply cpu 0.45
 ./build/MarchingCubes files/input.txt output.ply cpu-parallel 0.45 8
 ./build/MarchingCubes files/input.txt output.ply heterogeneous 0.45
+./build/MarchingCubes files/input.txt output.ply cuda 0.45
 ```
-
-## Historical CPU Benchmark
-
-The earlier CPU comparison used `files/input.txt`, a `69 x 64 x 72` grid producing `58,320` triangles at iso value `0.45`.
-
-Lower is better. One `#` represents approximately `4 ms`.
-
-```text
-Intel i7-4870HQ, CPU 1     | ##########################################  169.18 ms
-Intel i7-4870HQ, CPU 8     | ########                                    33.52 ms
-Core Ultra 7 255H, CPU 1   | ###################                         74.11 ms
-Core Ultra 7 255H, CPU 8   | ######                                      23.44 ms
-Core Ultra 7 255H, CPU 16  | #####                                       19.90 ms
-```
-
-<p>
-  <img src="files/snapshot00.png" alt="Rendered Marching Cubes brain mesh view 1" width="49%">
-  <img src="files/snapshot01.png" alt="Rendered Marching Cubes brain mesh view 2" width="49%">
-</p>
-
 
 ## Algorithm Reference
 

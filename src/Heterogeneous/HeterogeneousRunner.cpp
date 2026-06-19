@@ -10,8 +10,10 @@
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
+#include <cuda_runtime.h>
 #include <expected>
 #include <iostream>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -370,8 +372,17 @@ std::expected<void, std::string> HeterogeneousRunner::run()
                 thrust::raw_pointer_cast(deviceTriangles.data())
             });
 
-        thrust::host_vector<DeviceTriangle> hostDeviceTriangles = deviceTriangles;
+        const cudaError_t generationResult = cudaDeviceSynchronize();
+        if (generationResult != cudaSuccess) {
+            throw std::runtime_error(
+                std::string("synchronize Thrust triangle generation: ") +
+                cudaGetErrorString(generationResult));
+        }
         const auto gpuEnd = std::chrono::steady_clock::now();
+
+        const auto downloadStart = std::chrono::steady_clock::now();
+        thrust::host_vector<DeviceTriangle> hostDeviceTriangles = deviceTriangles;
+        const auto downloadEnd = std::chrono::steady_clock::now();
 
         const auto convertStart = std::chrono::steady_clock::now();
         const std::vector<Triangle> triangles = convertTrianglesToHost(thrust::raw_pointer_cast(hostDeviceTriangles.data()), hostDeviceTriangles.size());
@@ -391,6 +402,8 @@ std::expected<void, std::string> HeterogeneousRunner::run()
                   << std::chrono::duration<double, std::milli>(flattenEnd - flattenStart).count() << " ms\n";
         std::cout << "Heterogeneous GPU time: "
                   << std::chrono::duration<double, std::milli>(gpuEnd - gpuStart).count() << " ms\n";
+        std::cout << "Heterogeneous download time: "
+                  << std::chrono::duration<double, std::milli>(downloadEnd - downloadStart).count() << " ms\n";
         std::cout << "Heterogeneous convert time: "
                   << std::chrono::duration<double, std::milli>(convertEnd - convertStart).count() << " ms\n";
         std::cout << "Heterogeneous write time: "
