@@ -4,12 +4,58 @@ This project implements the Marching Cubes surface reconstruction algorithm in C
 
 It reads a regular scalar field from a text file, extracts an isosurface, generates triangles, and writes the result as an ASCII `.ply` mesh.
 
-## Current Large Benchmark
+## Full-Resolution CT Benchmark
 
-The current comparison uses a larger local CT scalar field and a Release build:
+This comparison uses the full-resolution CT scalar field and a Release build:
+
+- Grid: `512 x 512 x 267`
+- Scalar samples: `69,992,448`
+- Cubes processed: `69,458,186`
+- Input text file: `2.1 GB`
+- Iso value: `0.5`
+- Generated triangles: `13,260,420`
+- Result: median algorithm time over 5 rotated runs
+- CPU: Intel Core Ultra 7 255H, 16 available hardware threads
+- GPU: NVIDIA GeForce RTX 5070 Laptop GPU
+- Toolchain: GCC 14.2 and CUDA 13.3
+
+<p align="center">
+  <img src="files/benchmark_512.svg" alt="Horizontal bar charts comparing full-resolution CT mesh generation and GPU pipeline stages" width="100%">
+</p>
+
+### Iso-value update performance
+
+| Implementation | Mesh generation |
+|---|---:|
+| CPU, 1 thread | `5,106.22 ms` |
+| CPU, 8 threads | `1,262.91 ms` |
+| CPU, 16 threads | `922.84 ms` |
+| CUDA, Thrust | `25.29 ms` |
+| CUDA, explicit kernels | **`14.89 ms`** |
+
+For this workload, explicit CUDA generation is `1.70x` faster than Thrust, `62.0x` faster than the 16-thread CPU path, and `343.0x` faster than the sequential CPU path.
+
+The explicit CUDA result is inside a `16.67 ms` frame budget before rendering. This is the relevant iso-slider reaction time when the scalar field and generated mesh remain on the GPU.
+
+### GPU transfer and conversion
+
+| Implementation | GPU generation | Download | Host conversion | CPU-ready mesh |
+|---|---:|---:|---:|---:|
+| CUDA, explicit kernels | **`14.89 ms`** | **`252.67 ms`** | `340.02 ms` | **`607.58 ms`** |
+| CUDA, Thrust | `25.29 ms` | `360.62 ms` | **`320.16 ms`** | `706.08 ms` |
+
+Downloading and converting more than 13 million triangles is far more expensive than generating them. A responsive medical viewer should therefore keep the mesh on the GPU and render it directly rather than rebuilding a CPU triangle vector after every slider change.
+
+All benchmark modes generated the same triangle count. ASCII PLY writing was disabled in the benchmark-only binary because formatting this mesh took approximately `31.8 seconds` per run and is not part of iso-value interaction latency. Scalar-field loading and initial GPU setup are also outside the algorithm timers.
+
+## 128-Grid CT Benchmark
+
+This earlier comparison uses the downsampled CT scalar field and a Release build:
 
 - Grid: `128 x 128 x 267`
+- Iso value: `0.5`
 - Generated triangles: `1,515,424`
+- Result: median algorithm time over 5 alternating runs
 - CPU: Intel Core Ultra 7 255H, 16 available hardware threads
 - GPU: NVIDIA GeForce RTX 5070 Laptop GPU
 - Toolchain: GCC 14.2 and CUDA 13.3

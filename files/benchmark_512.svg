@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1100" height="690" viewBox="0 0 1100 690" role="img" aria-labelledby="title description">
+  <title id="title">Marching Cubes full-resolution CT benchmark</title>
+  <desc id="description">Horizontal bar charts comparing median mesh generation times and GPU pipeline stages for a 512 by 512 by 267 CT field producing 13,260,420 triangles. CPU one thread: 5,106.22 milliseconds. CPU eight threads: 1,262.91 milliseconds. CPU sixteen threads: 922.84 milliseconds. Thrust generation: 25.29 milliseconds. Explicit CUDA generation: 14.89 milliseconds. Explicit CUDA download: 252.67 milliseconds and conversion: 340.02 milliseconds. Thrust download: 360.62 milliseconds and conversion: 320.16 milliseconds.</desc>
+
+  <rect width="1100" height="690" fill="#ffffff"/>
+
+  <text x="48" y="48" fill="#17212b" font-family="Arial, Helvetica, sans-serif" font-size="26" font-weight="700">Full-resolution CT benchmark</text>
+  <text x="48" y="76" fill="#536170" font-family="Arial, Helvetica, sans-serif" font-size="15">512 x 512 x 267 · median over 5 rotated Release runs · 13,260,420 triangles</text>
+
+  <text x="48" y="116" fill="#263442" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Iso-value mesh generation</text>
+
+  <g stroke="#d9e0e7" stroke-width="1">
+    <line x1="260" y1="136" x2="260" y2="432"/>
+    <line x1="387.3" y1="136" x2="387.3" y2="432"/>
+    <line x1="514.5" y1="136" x2="514.5" y2="432"/>
+    <line x1="641.8" y1="136" x2="641.8" y2="432"/>
+    <line x1="769.1" y1="136" x2="769.1" y2="432"/>
+    <line x1="896.4" y1="136" x2="896.4" y2="432"/>
+    <line x1="960" y1="136" x2="960" y2="432"/>
+  </g>
+
+  <g fill="#697786" font-family="Arial, Helvetica, sans-serif" font-size="13" text-anchor="middle">
+    <text x="260" y="451">0</text>
+    <text x="387.3" y="451">1,000</text>
+    <text x="514.5" y="451">2,000</text>
+    <text x="641.8" y="451">3,000</text>
+    <text x="769.1" y="451">4,000</text>
+    <text x="896.4" y="451">5,000</text>
+    <text x="960" y="451">5,500 ms</text>
+  </g>
+
+  <g font-family="Arial, Helvetica, sans-serif" font-size="15">
+    <text x="238" y="171" fill="#263442" text-anchor="end">CPU · 1 thread</text>
+    <rect x="260" y="149" width="649.9" height="32" rx="4" fill="#465968"/>
+    <text x="922" y="171" fill="#263442" font-weight="700">5,106.22 ms</text>
+
+    <text x="238" y="226" fill="#263442" text-anchor="end">CPU · 8 threads</text>
+    <rect x="260" y="204" width="160.7" height="32" rx="4" fill="#6686a3"/>
+    <text x="433" y="226" fill="#263442" font-weight="700">1,262.91 ms</text>
+
+    <text x="238" y="281" fill="#263442" text-anchor="end">CPU · 16 threads</text>
+    <rect x="260" y="259" width="117.5" height="32" rx="4" fill="#89a6bd"/>
+    <text x="390" y="281" fill="#263442" font-weight="700">922.84 ms</text>
+
+    <text x="238" y="336" fill="#263442" text-anchor="end">CUDA · Thrust</text>
+    <rect x="260" y="314" width="5" height="32" rx="2" fill="#d0802b"/>
+    <text x="278" y="336" fill="#263442" font-weight="700">25.29 ms</text>
+
+    <text x="238" y="391" fill="#263442" text-anchor="end">CUDA · explicit kernels</text>
+    <rect x="260" y="369" width="3" height="32" rx="1" fill="#2f9e6f"/>
+    <text x="276" y="391" fill="#263442" font-weight="700">14.89 ms</text>
+  </g>
+
+  <line x1="48" y1="480" x2="1052" y2="480" stroke="#d9e0e7" stroke-width="1"/>
+  <text x="48" y="519" fill="#263442" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">GPU pipeline when a CPU mesh is required</text>
+
+  <g font-family="Arial, Helvetica, sans-serif" font-size="14">
+    <rect x="620" y="500" width="14" height="14" rx="2" fill="#2f9e6f"/>
+    <text x="642" y="512" fill="#536170">GPU generation</text>
+    <rect x="766" y="500" width="14" height="14" rx="2" fill="#4f78a5"/>
+    <text x="788" y="512" fill="#536170">Download</text>
+    <rect x="875" y="500" width="14" height="14" rx="2" fill="#9a6bb5"/>
+    <text x="897" y="512" fill="#536170">Host conversion</text>
+
+    <text x="238" y="570" fill="#263442" text-anchor="end">CUDA · explicit kernels</text>
+    <rect x="260" y="546" width="11.9" height="34" fill="#2f9e6f"/>
+    <rect x="271.9" y="546" width="202.1" height="34" fill="#4f78a5"/>
+    <rect x="474.0" y="546" width="272.0" height="34" fill="#9a6bb5"/>
+    <text x="758" y="570" fill="#263442" font-weight="700">607.58 ms</text>
+
+    <text x="238" y="628" fill="#263442" text-anchor="end">CUDA · Thrust</text>
+    <rect x="260" y="604" width="20.2" height="34" fill="#2f9e6f"/>
+    <rect x="280.2" y="604" width="288.5" height="34" fill="#4f78a5"/>
+    <rect x="568.7" y="604" width="256.1" height="34" fill="#9a6bb5"/>
+    <text x="837" y="628" fill="#263442" font-weight="700">706.08 ms</text>
+  </g>
+
+  <text x="260" y="670" fill="#697786" font-family="Arial, Helvetica, sans-serif" font-size="13">Stacked bars: GPU generation + download + host conversion</text>
+</svg>
